@@ -231,17 +231,20 @@ as_openclaw() {
 log "Temporarily enabling bash shell for openclaw (install only)..."
 sudo usermod --shell /bin/bash openclaw
 
-# Set npm prefix to a user-writable location before any install attempt.
-# Without this, npm defaults to /usr/lib/node_modules which openclaw cannot write.
+# Set npm prefix to a user-writable location.
+# The OpenClaw installer also tries to set this but races with itself on ARM64.
+# We bypass the installer and call npm directly to avoid the conflict.
+sudo mkdir -p /home/openclaw/.local/bin /home/openclaw/.local/lib
+sudo chown -R openclaw:openclaw /home/openclaw/.local
 as_openclaw 'npm config set prefix ~/.local'
 log "npm prefix set to /home/openclaw/.local"
 
-if sudo -u openclaw env HOME=/home/openclaw /bin/bash -c 'command -v openclaw &>/dev/null'; then
+if as_openclaw 'command -v openclaw &>/dev/null'; then
   warn "OpenClaw already installed for user openclaw — skipping install."
   as_openclaw 'openclaw --version' || true
 else
-  log "Installing OpenClaw as user openclaw..."
-  as_openclaw 'curl -fsSL https://openclaw.ai/install.sh | bash -s -- --no-onboard'
+  log "Installing OpenClaw via npm directly (bypassing installer to avoid prefix conflict)..."
+  as_openclaw 'env SHARP_IGNORE_GLOBAL_LIBVIPS=1 npm install -g openclaw@latest'
   log "OpenClaw installed: $(as_openclaw 'openclaw --version' 2>&1 || echo 'version unknown')"
 fi
 
