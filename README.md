@@ -1,95 +1,146 @@
-# openclaw-pi-setup — OpenClaw on Raspberry Pi 4
+# openclaw-pi-setup — Run OpenClaw on a Raspberry Pi 4
 
-Secure, self-hosted AI assistant on Pi 4 with Tailscale private access and Anthropic auth.
+A one-script setup that turns a Raspberry Pi 4 into a secure, always-on AI assistant you can reach from anywhere via Telegram or a private web UI — without paying for cloud hosting.
 
 ![CI](https://img.shields.io/badge/CI-passing-brightgreen) ![License](https://img.shields.io/badge/license-MIT-blue)
 
-## Architecture
+---
+
+## Why this setup?
+
+A Raspberry Pi 4 costs about €50–80 one-time. Running an AI assistant on a cloud VPS costs €5–15/month. This pays for itself in a few months — and you keep full control.
+
+**What you get:**
+
+- **Always-on AI assistant** — OpenClaw runs as a background service on your Pi. It starts automatically on boot and restarts itself if it crashes.
+- **Private access from anywhere** — Tailscale creates an encrypted tunnel between your Pi and your other devices. Nobody else can reach it. No port forwarding needed.
+- **Chat via Telegram** — Message your own bot from your phone. The bot only responds to approved users (you).
+- **Web UI** — Open `https://your-pi-hostname` in a browser on any of your Tailscale devices for a full chat interface.
+- **Smart fan control** — A separate service monitors the CPU temperature and adjusts the fan speed automatically, keeping the Pi cool under load.
+- **Locked down by default** — The AI process runs as an isolated system user. It cannot reach your local network (router, NAS, other devices), cannot touch hardware, and cannot write outside its own directory.
+
+---
+
+## How it works
+
+The setup script creates three separate system users, each with minimal permissions:
 
 ```
 ┌─────────────────────────────────────────────────┐
-│  pi user        — admin, SSH, sudo              │
-│  fancontrol     — owns GPIO, runs fan daemon    │
-│  openclaw       — isolated, LAN-blocked         │
+│  pi user        — that's you: admin, SSH, sudo  │
+│  fancontrol     — only allowed to control fan   │
+│  openclaw       — only allowed to reach internet│
 └─────────────────────────────────────────────────┘
-       │
-       ▼
-openclaw gateway (127.0.0.1:18789)
-       │
-       └── Tailscale Serve (tailnet-only HTTPS)
-               ├── Anthropic API (outbound)
-               ├── Telegram bot (outbound)
-               └── Fan status (read-only, sudoers)
 ```
 
-## Division of Responsibilities
+The `openclaw` user runs the AI process. A firewall rule (iptables) blocks it from touching anything on your local network — it can only reach the internet (Anthropic API and Telegram). Your router, NAS, and other devices are invisible to it.
 
-| Who | Does what |
-|---|---|
-| Claude Code | Generates this repo: hardening, services, config templates, firewall rules |
-| Human operator | Fills `.env` (tokens, hostname), runs the script, completes interactive auth |
+Fan control is intentionally separate: GPIO hardware access is a security risk. The `fancontrol` user owns that privilege. OpenClaw can only read the temperature via a narrow read-only wrapper.
 
-Secrets never touch the repo. Ever.
+```
+Your phone / MacBook
+       │
+       │  (Tailscale encrypted tunnel)
+       ▼
+Pi — openclaw gateway (localhost only)
+       │
+       ├── Anthropic API (Claude models, outbound)
+       ├── Telegram bot (outbound)
+       └── Fan status (read-only, no hardware access)
+```
 
-## Prerequisites
+---
 
-- Raspberry Pi 4 (2GB+ RAM)
-- Raspberry Pi OS (64-bit recommended)
-- Tailscale installed and connected
-- Anthropic account
-- Telegram bot token from [@BotFather](https://t.me/BotFather)
+## What you need before starting
 
-## Quick Start
+- **Raspberry Pi 4** with at least 2GB RAM (4GB recommended)
+- **Raspberry Pi OS** installed (64-bit, Lite or Desktop)
+- **Tailscale** installed on the Pi and on your Mac/phone — [tailscale.com](https://tailscale.com) (free for personal use)
+- **Anthropic account** — [console.anthropic.com](https://console.anthropic.com) (you can use a Claude subscription instead of an API key)
+- **Telegram bot token** — create a bot in 30 seconds via [@BotFather](https://t.me/BotFather) on Telegram
+
+---
+
+## Quick start
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/openclaw-pi-setup
+# 1. Clone this repo onto your Pi
+git clone https://github.com/kaiser-data/openclaw-pi-setup
 cd openclaw-pi-setup
+
+# 2. Create your secrets file (never committed to git)
 cp .env.example .env
-nano .env          # fill in your values
+chmod 600 .env        # make it unreadable to other users
+nano .env             # fill in your values (see below)
+
+# 3. Run the setup script
 bash scripts/setup-openclaw.sh
-# then follow CHECKLIST.md
 ```
 
-## Security Model
+**What to fill in `.env`:**
 
-### Three-user isolation
+| Variable | What it is | Example |
+|---|---|---|
+| `TELEGRAM_BOT_TOKEN` | Token from @BotFather | `123456:ABCdef...` |
+| `TAILSCALE_HOSTNAME` | Your Pi's Tailscale address | `pi-claw-agent.tail1234.ts.net` |
+| `FAN_GPIO_PIN` | GPIO pin your fan is on | `14` |
+| `ANTHROPIC_API_KEY` | Optional — leave blank to use `claude setup-token` instead | _(leave empty)_ |
 
-- `pi` — the admin account. Has sudo. Runs SSH. Does not run OpenClaw.
-- `fancontrol` — a system account that owns GPIO access and runs the fan daemon. Completely separate from OpenClaw.
-- `openclaw` — a system account that runs the OpenClaw process. Has no home-directory login, no GPIO access, and is blocked from reaching the LAN.
+> Not sure of your Tailscale hostname? Run `tailscale status` on the Pi — it's the first hostname listed.
 
-### LAN block (iptables)
+After the script finishes, follow **[CHECKLIST.md](CHECKLIST.md)** for the two manual steps that can't be automated: approving your Anthropic account and pairing your Telegram bot.
 
-An iptables `OUTPUT` DROP rule keyed to the `openclaw` UID prevents the process from reaching your local network (192.168.0.0/24). It can only reach the internet (Anthropic API, Telegram) and localhost. The rule is applied by a systemd oneshot service so it survives service restarts.
+---
 
-### Why fan control is a separate user
+## What the script does (overview)
 
-`gpiozero` requires access to `/dev/gpiomem`. Granting that to the `openclaw` process would allow arbitrary hardware access. `fancontrol` owns that privilege exclusively. OpenClaw reads fan status through a narrow sudoers-gated wrapper (`/usr/local/bin/fan-status`) that prints temperature and speed only.
+The script runs automatically and asks for confirmation before making any permanent changes:
 
-### PrivateDevices and sandboxing
+1. Checks prerequisites (Tailscale connected, Node.js version, clean state)
+2. Upgrades Node.js to v24 if needed
+3. Creates the `fancontrol` user and deploys the fan speed daemon
+4. Creates the `openclaw` user and sets up the firewall rule that blocks LAN access
+5. Downloads and installs OpenClaw
+6. Creates the workspace and config from your `.env` values
+7. Stores your secrets securely in `/etc/openclaw/secrets.env` (readable by root only)
+8. Asks you to confirm before enabling anything
+9. Starts all three services and prints their status
 
-The `openclaw` systemd unit sets `PrivateDevices=yes`, blocking raw device access at the kernel level.
+---
 
-### Secrets
+## Security model (plain English)
 
-Secrets (tokens, API keys) live in `/etc/openclaw/secrets.env` on disk, mode 600, root:root. They are loaded by the systemd unit via `EnvironmentFile`. They never appear in this repository. The `.env` file used during setup is listed in `.gitignore` — see `.env.example` for the template.
+**Your secrets never enter this repository.** The `.env` file is in `.gitignore`. Tokens are stored in `/etc/openclaw/secrets.env` on your Pi with `chmod 600` (only root can read it). They are injected into the service at runtime — never written to config files.
 
-### Anthropic API key
+**The AI can't reach your home network.** An iptables firewall rule drops all outbound traffic from the `openclaw` user to `192.168.0.0/24`. It can reach `api.anthropic.com` and Telegram, nothing else local.
 
-`ANTHROPIC_API_KEY` in `.env` is optional. If left blank, a placeholder token is written and you must complete `claude setup-token` interactively after the script runs. This is the recommended path — it keeps the key out of any file on disk.
+**The AI can't touch your hardware.** The systemd unit sets `PrivateDevices=yes`, blocking access to `/dev/*` at the kernel level. The fan controller is a completely separate process owned by a different user.
 
-## Files
+**Only you can message the bot.** Telegram `dmPolicy` is set to `"pairing"` — any new user who messages the bot gets a code. You approve it on the Pi. Anyone else is ignored.
 
-| File | Purpose |
+**Anthropic API key is optional.** You can authenticate using `claude setup-token` (a browser-based login flow) instead of pasting an API key into any file. This is the recommended approach.
+
+---
+
+## Files in this repo
+
+| File | What it does |
 |---|---|
-| `.env.example` | Template — copy to `.env`, fill in, never commit |
-| `scripts/setup-openclaw.sh` | Full automated setup script |
-| `fan/fan_control.py` | PWM fan daemon (runs as `fancontrol`) |
-| `fan/fan_status.py` | Read-only fan/temp reporter |
-| `config/openclaw.json.template` | OpenClaw config with placeholder substitution |
-| `CHECKLIST.md` | Step-by-step human operator walkthrough |
-| `CLAUDE_CODE_PROMPT.md` | The prompt used to generate this repo |
+| `.env.example` | Template for your secrets — copy to `.env`, fill in, never commit |
+| `scripts/setup-openclaw.sh` | The main setup script |
+| `fan/fan_control.py` | Fan speed daemon (runs as `fancontrol` user) |
+| `fan/fan_status.py` | Read-only temperature reporter |
+| `config/openclaw.json.template` | OpenClaw config template (hostname substituted at setup) |
+| `CHECKLIST.md` | Step-by-step guide for the manual steps after the script |
+| `CLAUDE_CODE_PROMPT.md` | The prompt used to generate this repo with Claude Code |
 
-## After Setup
+---
 
-Follow [CHECKLIST.md](CHECKLIST.md) for the interactive steps that cannot be automated (Anthropic auth, Telegram pairing, security verification).
+## After setup
+
+Follow [CHECKLIST.md](CHECKLIST.md) — it walks you through:
+
+1. Approving your Anthropic account (one-time browser login)
+2. Pairing your Telegram bot
+3. Verifying the security rules are working
+4. Accessing the web UI from your Mac
