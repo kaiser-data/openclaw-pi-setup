@@ -37,7 +37,14 @@ section "Loading .env"
 
 ENV_FILE="$REPO_DIR/.env"
 if [[ ! -f "$ENV_FILE" ]]; then
-  die ".env not found. Copy .env.example to .env and fill in your values:\n  cp .env.example .env && nano .env"
+  die ".env not found. Copy .env.example to .env and fill in your values:\n  cp .env.example .env && chmod 600 .env && nano .env"
+fi
+
+# Enforce strict permissions — .env must not be world- or group-readable
+ENV_PERMS=$(stat -c "%a" "$ENV_FILE")
+if [[ "$ENV_PERMS" != "600" ]]; then
+  warn ".env permissions are ${ENV_PERMS} — tightening to 600 (owner read/write only)."
+  chmod 600 "$ENV_FILE"
 fi
 
 # shellcheck disable=SC1090
