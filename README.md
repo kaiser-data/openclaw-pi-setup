@@ -2,7 +2,7 @@
 
 A one-script setup that turns a Raspberry Pi 4 into a secure, always-on AI assistant you can reach from anywhere via Telegram or a private web UI — without paying for cloud hosting.
 
-![CI](https://img.shields.io/badge/CI-passing-brightgreen) ![License](https://img.shields.io/badge/license-MIT-blue)
+![CI](https://img.shields.io/badge/CI-passing-brightgreen) ![License](https://img.shields.io/badge/license-MIT-blue) [![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-kaiserdata-orange)](https://buymeacoffee.com/kaiserdata)
 
 ---
 
@@ -144,3 +144,9 @@ Follow [CHECKLIST.md](CHECKLIST.md) — it walks you through:
 2. Pairing your Telegram bot
 3. Verifying the security rules are working
 4. Accessing the web UI from your Mac
+
+---
+
+## Support
+
+If this saved you time, you can [buy me a coffee](https://buymeacoffee.com/kaiserdata).
