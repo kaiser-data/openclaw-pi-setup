@@ -231,6 +231,11 @@ as_openclaw() {
 log "Temporarily enabling bash shell for openclaw (install only)..."
 sudo usermod --shell /bin/bash openclaw
 
+# Set npm prefix to a user-writable location before any install attempt.
+# Without this, npm defaults to /usr/lib/node_modules which openclaw cannot write.
+as_openclaw 'npm config set prefix ~/.local'
+log "npm prefix set to /home/openclaw/.local"
+
 if sudo -u openclaw env HOME=/home/openclaw /bin/bash -c 'command -v openclaw &>/dev/null'; then
   warn "OpenClaw already installed for user openclaw — skipping install."
   as_openclaw 'openclaw --version' || true
