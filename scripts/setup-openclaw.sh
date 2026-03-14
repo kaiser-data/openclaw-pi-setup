@@ -223,9 +223,10 @@ section "Phase 5 — Install OpenClaw"
 # The openclaw user has nologin as its shell for security. We temporarily switch
 # to bash for the install (which needs a real shell + npm), then lock it back down.
 as_openclaw() {
+  # Run in openclaw's home dir to avoid permission errors reading /home/pi
   sudo -u openclaw env HOME=/home/openclaw \
     PATH="/home/openclaw/.local/bin:/home/openclaw/.npm-global/bin:/usr/local/bin:/usr/bin:/bin" \
-    /bin/bash -c "$1"
+    /bin/bash -c "cd /home/openclaw && $1"
 }
 
 log "Temporarily enabling bash shell for openclaw (install only)..."
@@ -238,6 +239,10 @@ sudo mkdir -p /home/openclaw/.local/bin /home/openclaw/.local/lib
 sudo chown -R openclaw:openclaw /home/openclaw/.local
 as_openclaw 'npm config set prefix ~/.local'
 log "npm prefix set to /home/openclaw/.local"
+
+# Force git to use HTTPS instead of SSH for GitHub — openclaw has no SSH keys
+as_openclaw 'git config --global url."https://github.com/".insteadOf ssh://git@github.com/'
+log "git configured to use HTTPS for GitHub (no SSH keys for openclaw)"
 
 if as_openclaw 'command -v openclaw &>/dev/null'; then
   warn "OpenClaw already installed for user openclaw — skipping install."
