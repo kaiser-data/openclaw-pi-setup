@@ -220,17 +220,31 @@ log "openclaw-lan-block service unit written."
 # ── Phase 5: Install OpenClaw ─────────────────────────────────────────────────
 section "Phase 5 — Install OpenClaw"
 
-if sudo -u openclaw -i bash -c 'command -v openclaw &>/dev/null'; then
+# The openclaw user has nologin as its shell for security. We temporarily switch
+# to bash for the install (which needs a real shell + npm), then lock it back down.
+as_openclaw() {
+  sudo -u openclaw env HOME=/home/openclaw \
+    PATH="/home/openclaw/.local/bin:/home/openclaw/.npm-global/bin:/usr/local/bin:/usr/bin:/bin" \
+    /bin/bash -c "$1"
+}
+
+log "Temporarily enabling bash shell for openclaw (install only)..."
+sudo usermod --shell /bin/bash openclaw
+
+if sudo -u openclaw env HOME=/home/openclaw /bin/bash -c 'command -v openclaw &>/dev/null'; then
   warn "OpenClaw already installed for user openclaw — skipping install."
-  sudo -u openclaw -i bash -c 'openclaw --version' || true
+  as_openclaw 'openclaw --version' || true
 else
   log "Installing OpenClaw as user openclaw..."
-  sudo -u openclaw -i bash -c 'curl -fsSL https://openclaw.ai/install.sh | bash -s -- --no-onboard'
-  log "OpenClaw installed: $(sudo -u openclaw -i bash -c 'openclaw --version' 2>&1 || echo 'version unknown')"
+  as_openclaw 'curl -fsSL https://openclaw.ai/install.sh | bash -s -- --no-onboard'
+  log "OpenClaw installed: $(as_openclaw 'openclaw --version' 2>&1 || echo 'version unknown')"
 fi
 
+log "Re-locking openclaw shell to nologin..."
+sudo usermod --shell /usr/sbin/nologin openclaw
+
 # Resolve binary path for use in the systemd unit
-OPENCLAW_BIN=$(sudo -u openclaw -i bash -c 'command -v openclaw 2>/dev/null || echo ""')
+OPENCLAW_BIN=$(as_openclaw 'command -v openclaw 2>/dev/null || echo ""')
 if [[ -z "$OPENCLAW_BIN" ]]; then
   die "Cannot find openclaw binary for user openclaw. Installation may have failed."
 fi
