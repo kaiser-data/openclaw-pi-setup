@@ -29,7 +29,6 @@
         "primary": "anthropic/claude-haiku-4-5-20251001",
         "fallbacks": ["anthropic/claude-sonnet-4-6"]
       },
-      "maxTokens": 1024,
       // non-main sandbox: agent tools run in a sandboxed subprocess,
       // protecting the host environment from unintended side effects.
       "sandbox": {
