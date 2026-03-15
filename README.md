@@ -147,6 +147,21 @@ Follow [CHECKLIST.md](CHECKLIST.md) — it walks you through:
 
 ---
 
+## Adding API keys after setup
+
+All secrets live in `/etc/openclaw/secrets.env` on the Pi — not in this repo, not in `.env`. To add a new key:
+
+```bash
+sudo nano /etc/openclaw/secrets.env
+# Add a new line: MY_SERVICE_API_KEY=your-key-here
+
+sudo systemctl restart openclaw-gateway
+```
+
+The file is `root:root 600` — only root can read it. It is never committed to git.
+
+---
+
 ## Support
 
 If this saved you time, you can [buy me a coffee](https://buymeacoffee.com/kaiserdata).
