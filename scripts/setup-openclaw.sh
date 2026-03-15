@@ -410,8 +410,7 @@ StandardError=journal
 PrivateDevices=yes
 NoNewPrivileges=yes
 ProtectSystem=strict
-PrivateTmp=yes
-ReadWritePaths=/home/openclaw /var/tmp/openclaw-compile-cache
+ReadWritePaths=/home/openclaw /var/tmp/openclaw-compile-cache /tmp
 
 [Install]
 WantedBy=multi-user.target
