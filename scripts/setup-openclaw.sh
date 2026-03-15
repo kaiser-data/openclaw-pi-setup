@@ -302,9 +302,9 @@ if [[ "$ANTHROPIC_KEY_PROVIDED" = false ]]; then
   echo -e "${YELLOW}${BOLD}┌─────────────────────────────────────────────────────┐${RESET}"
   echo -e "${YELLOW}${BOLD}│  ACTION REQUIRED: Anthropic API key is a dummy      │${RESET}"
   echo -e "${YELLOW}${BOLD}│                                                     │${RESET}"
-  echo -e "${YELLOW}${BOLD}│  After setup, run both of these as openclaw:        │${RESET}"
-  echo -e "${YELLOW}${BOLD}│    sudo -u openclaw -i claude setup-token           │${RESET}"
-  echo -e "${YELLOW}${BOLD}│    sudo -u openclaw -i openclaw models auth \       │${RESET}"
+  echo -e "${YELLOW}${BOLD}│  After setup, run both of these:                    │${RESET}"
+  echo -e "${YELLOW}${BOLD}│    as-openclaw claude setup-token                   │${RESET}"
+  echo -e "${YELLOW}${BOLD}│    as-openclaw openclaw models auth \               │${RESET}"
   echo -e "${YELLOW}${BOLD}│      setup-token --provider anthropic               │${RESET}"
   echo -e "${YELLOW}${BOLD}│                                                     │${RESET}"
   echo -e "${YELLOW}${BOLD}│  OpenClaw will NOT work until this is done.         │${RESET}"
@@ -351,6 +351,21 @@ EOF
 
 sudo chmod 440 /etc/sudoers.d/openclaw-fan
 log "Sudoers rule written: /etc/sudoers.d/openclaw-fan"
+
+# as-openclaw helper — run any command as the openclaw user with the right env.
+# Usage: as-openclaw openclaw gateway status
+#        as-openclaw claude setup-token
+sudo tee /usr/local/bin/as-openclaw > /dev/null << 'EOF'
+#!/usr/bin/env bash
+# as-openclaw — run a command as the openclaw system user
+# https://github.com/YOUR_USERNAME/openclaw-pi-setup
+exec sudo -u openclaw \
+  env HOME=/home/openclaw \
+  PATH="/home/openclaw/.local/bin:/usr/local/bin:/usr/bin:/bin" \
+  /bin/bash -c "cd /home/openclaw && $(printf '%q ' "$@")"
+EOF
+sudo chmod 755 /usr/local/bin/as-openclaw
+log "as-openclaw helper installed at /usr/local/bin/as-openclaw"
 
 # openclaw-gateway.service systemd unit (written here, before the confirmation prompt)
 # Service name matches the convention used by 'openclaw gateway install'.
@@ -433,9 +448,9 @@ echo -e "${GREEN}${BOLD}├─────────────────�
 echo -e "${GREEN}${BOLD}│  Next: follow CHECKLIST.md                          │${RESET}"
 echo -e "${GREEN}${BOLD}│                                                     │${RESET}"
 if [[ "$ANTHROPIC_KEY_PROVIDED" = false ]]; then
-echo -e "${YELLOW}${BOLD}│  REQUIRED — run as openclaw:                        │${RESET}"
-echo -e "${YELLOW}${BOLD}│    sudo -u openclaw -i claude setup-token           │${RESET}"
-echo -e "${YELLOW}${BOLD}│    sudo -u openclaw -i openclaw models auth \       │${RESET}"
+echo -e "${YELLOW}${BOLD}│  REQUIRED — Anthropic auth:                         │${RESET}"
+echo -e "${YELLOW}${BOLD}│    as-openclaw claude setup-token                   │${RESET}"
+echo -e "${YELLOW}${BOLD}│    as-openclaw openclaw models auth \               │${RESET}"
 echo -e "${YELLOW}${BOLD}│      setup-token --provider anthropic               │${RESET}"
 echo -e "${GREEN}${BOLD}│                                                     │${RESET}"
 fi
@@ -443,6 +458,6 @@ echo -e "${GREEN}${BOLD}│  Access UI (once on Tailscale):                     
 echo -e "${GREEN}${BOLD}│    https://${TAILSCALE_HOSTNAME}${RESET}"
 echo -e "${GREEN}${BOLD}│                                                     │${RESET}"
 echo -e "${GREEN}${BOLD}│  Health check:                                      │${RESET}"
-echo -e "${GREEN}${BOLD}│    sudo -u openclaw openclaw gateway status         │${RESET}"
+echo -e "${GREEN}${BOLD}│    as-openclaw openclaw gateway status              │${RESET}"
 echo -e "${GREEN}${BOLD}└─────────────────────────────────────────────────────┘${RESET}"
 echo ""
