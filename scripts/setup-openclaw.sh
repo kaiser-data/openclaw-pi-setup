@@ -355,17 +355,31 @@ log "Sudoers rule written: /etc/sudoers.d/openclaw-fan"
 # as-openclaw helper — run any command as the openclaw user with the right env.
 # Usage: as-openclaw openclaw gateway status
 #        as-openclaw claude setup-token
-sudo tee /usr/local/bin/as-openclaw > /dev/null << 'EOF'
-#!/usr/bin/env bash
+# Write via python3 to avoid heredoc quoting issues with $@
+sudo python3 -c "
+content = '''#!/usr/bin/env bash
 # as-openclaw — run a command as the openclaw system user
 # https://github.com/YOUR_USERNAME/openclaw-pi-setup
-exec sudo -u openclaw \
-  env HOME=/home/openclaw \
-  PATH="/home/openclaw/.local/bin:/usr/local/bin:/usr/bin:/bin" \
-  /bin/bash -c "cd /home/openclaw && $(printf '%q ' "$@")"
-EOF
-sudo chmod 755 /usr/local/bin/as-openclaw
+exec sudo -u openclaw env HOME=/home/openclaw PATH=\"/home/openclaw/.local/bin:/usr/local/bin:/usr/bin:/bin\" /bin/bash -c \"cd /home/openclaw && \$*\"
+'''
+with open('/usr/local/bin/as-openclaw', 'w') as f:
+    f.write(content)
+import os; os.chmod('/usr/local/bin/as-openclaw', 0o755)
+"
 log "as-openclaw helper installed at /usr/local/bin/as-openclaw"
+
+# Copy the claude binary to /usr/local/bin so the openclaw user can reach it.
+# A symlink won't work because /home/pi is mode 0700 (openclaw cannot traverse it).
+CLAUDE_REAL=$(readlink -f "$(which claude 2>/dev/null)" 2>/dev/null || true)
+if [[ -n "$CLAUDE_REAL" && -x "$CLAUDE_REAL" ]]; then
+  sudo cp "$CLAUDE_REAL" /usr/local/bin/claude
+  sudo chmod 755 /usr/local/bin/claude
+  log "claude binary copied to /usr/local/bin/claude"
+else
+  warn "claude binary not found in current user's PATH — skipping copy."
+  warn "Install Claude Code for the pi user first, then re-run or copy manually:"
+  warn "  sudo cp \$(readlink -f \$(which claude)) /usr/local/bin/claude"
+fi
 
 # openclaw-gateway.service systemd unit (written here, before the confirmation prompt)
 # Service name matches the convention used by 'openclaw gateway install'.

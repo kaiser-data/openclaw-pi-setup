@@ -54,8 +54,8 @@ You must run both of these commands:
 # Step 1: get a subscription token via the Claude CLI browser flow
 as-openclaw claude setup-token
 
-# Step 2: register that token with OpenClaw
-as-openclaw openclaw models auth setup-token --provider anthropic
+# Step 2: register that token with OpenClaw (will prompt you to paste it)
+as-openclaw openclaw models auth paste-token --provider anthropic
 
 # Verify it worked
 as-openclaw openclaw models status
@@ -65,10 +65,11 @@ as-openclaw openclaw models status
 > as the `openclaw` user with the correct environment.
 
 `claude setup-token` prints a URL. Open it in a browser, log in with your Anthropic account,
-approve access, and paste the token back into the terminal. Both steps are required.
+approve access, and copy the long-lived token it gives you. Then paste it when
+`paste-token` prompts you.
 
-Note: if you prefer an API key over the subscription token, set `ANTHROPIC_API_KEY` in
-`/etc/openclaw/secrets.env` instead and restart the service.
+Note: if you prefer a plain API key, set `ANTHROPIC_API_KEY` in
+`/etc/openclaw/secrets.env` (mode 600) and restart the gateway instead.
 
 ### Step B — Verify Telegram token
 
@@ -149,7 +150,7 @@ If it does not load, check:
 | View OpenClaw logs | `sudo journalctl -u openclaw-gateway -f` |
 | View fan logs | `sudo journalctl -u fan-control -f` |
 | Update OpenClaw | `as-openclaw openclaw update --channel stable` |
-| Renew Anthropic token | `as-openclaw claude setup-token` then `as-openclaw openclaw models auth setup-token --provider anthropic` |
+| Renew Anthropic token | `as-openclaw claude setup-token` then `as-openclaw openclaw models auth paste-token --provider anthropic` |
 | Gateway status | `as-openclaw openclaw gateway status` |
 | Model/auth status | `as-openclaw openclaw models status` |
 | Health check | `as-openclaw openclaw doctor` |
