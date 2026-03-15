@@ -29,10 +29,11 @@
         "primary": "anthropic/claude-haiku-4-5-20251001",
         "fallbacks": ["anthropic/claude-sonnet-4-6"]
       },
-      // non-main sandbox: agent tools run in a sandboxed subprocess,
-      // protecting the host environment from unintended side effects.
+      // Sandbox mode disabled — requires Docker which is not available on Pi.
+      // Security is handled at the OS level: openclaw runs as an isolated system
+      // user with iptables LAN block and PrivateDevices=yes in the systemd unit.
       "sandbox": {
-        "mode": "non-main"
+        "mode": "off"
       }
     }
   },
