@@ -82,8 +82,23 @@ sudo nano /etc/openclaw/secrets.env
 
 ```bash
 sudo systemctl restart openclaw-gateway
+sleep 5
 sudo systemctl status openclaw-gateway   # must show: active (running)
 ```
+
+If it shows `active (running)` but then fails shortly after, check the logs:
+
+```bash
+sudo journalctl -u openclaw-gateway -n 30 --no-pager
+```
+
+Common issues seen during real installs:
+
+| Error in log | Fix |
+|---|---|
+| `Unable to create fallback OpenClaw temp dir` | `/tmp` not writable — check `ReadWritePaths` in service override includes `/tmp` |
+| `Gateway start blocked: set gateway.mode=local` | Run `as-openclaw openclaw config set gateway.mode local` then restart |
+| `Invalid config … Unrecognized key` | Run `as-openclaw openclaw doctor --fix` then restart |
 
 ### Step D — Pair your Telegram bot
 

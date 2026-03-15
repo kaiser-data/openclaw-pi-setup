@@ -12,6 +12,7 @@
   // Tailscale Serve proxies HTTPS from your private tailnet to 127.0.0.1:18789.
   // Access is limited to devices on your Tailscale network.
   "gateway": {
+    "mode": "local",
     "bind": "loopback",
     "port": 18789,
     "tailscale": {
